@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartLens - Real-Time Object Analyzer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    video, canvas {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    #results {
+      margin-top: 10px;
+      padding: 10px;
+      background: #1e1e1e;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📷 SmartLens</h1>
+  <video id="video" autoplay muted playsinline width="600"></video>
+  <canvas id="canvas" style="display: none;"></canvas>
+  <div id="results">Detecting...</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const results = document.getElementById('results');
+
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        results.innerText = 'Camera access denied.';
+      }
+    }
+
+    async function captureAndAnalyze() {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0);
+      const imageData = canvas.toDataURL('image/jpeg');
+
+      results.innerText = 'Analyzing image...';
+
+      // Replace YOUR_GOOGLE_CLOUD_VISION_API_KEY with your actual key
+      const apiKey = 'YOUR_GOOGLE_CLOUD_VISION_API_KEY';
+
+      const body = {
+        requests: [
+          {
+            image: { content: imageData.replace(/^data:image\/\w+;base64,/, '') },
+            features: [{ type: 'LABEL_DETECTION', maxResults: 5 }]
+          }
+        ]
+      };
+
+      const res = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await res.json();
+      const labels = data.responses[0].labelAnnotations.map(label => label.description);
+
+      if (labels.length) {
+        results.innerHTML = '<strong>Detected:</strong><br>' + labels.join(', ');
+        speak(labels.join(', '));
+      } else {
+        results.innerText = 'No objects detected.';
+      }
+    }
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      speechSynthesis.speak(utterance);
+    }
+
+    setupCamera();
+    setInterval(captureAndAnalyze, 10000); // Analyze every 10 seconds
+  </script>
+</body>
+</html>
+Commit new file
